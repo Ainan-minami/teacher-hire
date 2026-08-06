@@ -1,6 +1,13 @@
 /* 教师招聘聚合站 - 前端逻辑（vanilla JS，无构建步骤） */
 "use strict";
 
+// 按来源拆分的数据文件（并行加载，避免单文件过大）
+const DATA_URLS = [
+  "data/jobs-job910.json",
+  "data/jobs-jybzp.json",
+  "data/jobs-yjszp.json",
+  "data/jobs-prov_bureau.json",
+];
 const DATA_URL = "data/jobs.json";
 const META_URL = "data/meta.json";
 const COUNTS_URL = "data/province-counts.json";
@@ -43,15 +50,20 @@ const els = {
 /* ---------- 数据加载 ---------- */
 async function loadData() {
   try {
-    const [data, meta] = await Promise.all([
-      fetch(DATA_URL).then((r) => r.json()),
+    const [parts, meta] = await Promise.all([
+      Promise.all(DATA_URLS.map((u) => fetch(u).then((r) => r.json()).catch(() => ({ jobs: [] })))),
       fetch(META_URL).then((r) => r.json()).catch(() => null),
     ]);
-    state.jobs = data.jobs || [];
+    state.jobs = parts.flatMap((p) => p.jobs || []);
+    if (state.jobs.length === 0) {
+      // 兜底：来源文件缺失时加载汇总文件
+      const fallback = await fetch(DATA_URL).then((r) => r.json());
+      state.jobs = fallback.jobs || [];
+    }
     state.meta = meta;
     els.count.textContent = `共 ${state.jobs.length} 个岗位`;
-    if (data.updated_at) {
-      els.updated.textContent = "更新于 " + formatDateTime(data.updated_at);
+    if (meta && meta.updated_at) {
+      els.updated.textContent = "更新于 " + formatDateTime(meta.updated_at);
     }
     buildFilterOptions();
     loadWatches();
