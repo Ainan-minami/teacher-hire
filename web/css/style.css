@@ -88,6 +88,34 @@ select {
 .filter-grid select { width: 100%; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.quick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.btn-ghost {
+  background: #fff;
+  color: var(--primary-dark);
+  border: 1px solid #cdd9f5;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-ghost:hover { background: #eef3ff; }
+.btn-ghost.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.watch-info { font-size: 12px; color: var(--muted); }
+.watches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.watch-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff8e8;
+  border: 1px solid #f0d9a0;
+  color: #8a5a00;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.watch-item .new-badge { background: #e5484d; color: #fff; border-radius: 999px; padding: 0 6px; font-size: 11px; }
+.watch-item button { border: 0; background: none; cursor: pointer; color: #8a5a00; font-size: 13px; }
 .chip {
   display: inline-flex;
   align-items: center;
@@ -159,6 +187,7 @@ select {
 .tag.loc { background: #e8f7ee; color: #0f7a3d; }
 .tag.edu { background: #eef1ff; color: #3d4fd8; }
 .tag.hot { background: #ffeef0; color: #c22b3a; }
+.tag.new { background: #ffe9ec; color: #d23b4c; font-weight: 600; }
 
 .job-meta {
   display: flex;
