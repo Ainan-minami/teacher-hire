@@ -6,3 +6,4 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+crawler/sources/.prov_list_cache.json
