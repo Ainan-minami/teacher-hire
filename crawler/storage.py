@@ -32,18 +32,22 @@ def load_previous(path: str) -> list[dict]:
 
 
 def dedupe_by_url(records: Iterable[dict], max_age_days: int = 120) -> list[dict]:
-    """按 url 去重，同链接保留最新；过期记录（超过 max_age_days）剔除。"""
+    """按 url 去重，同链接保留最新；长期未再抓取的记录（超过 max_age_days）剔除。
+
+    注意：用 crawl_date（抓取时间）判断新旧与过期，而不是 publish_date——
+    招聘公告可能在 4 月发布但 8 月仍在报名期内，按发布时间剔除会误杀有效岗位。
+    """
     seen: dict[str, dict] = {}
     today = datetime.now(timezone.utc).date()
     for r in records:
         url = (r.get("url") or "").strip()
         if not url:
             continue
-        # 清理过老记录
-        pub = r.get("publish_date") or ""
-        if pub:
+        # 清理长期未抓取到的记录
+        crawl = r.get("crawl_date") or ""
+        if crawl:
             try:
-                d = datetime.strptime(pub[:10], "%Y-%m-%d").date()
+                d = datetime.strptime(crawl[:10], "%Y-%m-%d").date()
                 if (today - d).days > max_age_days:
                     continue
             except ValueError:
@@ -58,7 +62,8 @@ def save_json(path: str, obj) -> None:
     ensure_dirs()
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, indent=1)
+        # 紧凑格式（不缩进），显著减小文件体积
+        json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp, path)
 
 
@@ -73,38 +78,60 @@ def write_outputs(records: list[dict], run_info: dict) -> dict:
         reverse=True,
     )
 
-    # 前端数据：全量字段的精简版（保持较小体积）
-    frontend_payload = {
-        "updated_at": run_info.get("updated_at", datetime.now(timezone.utc).isoformat(timespec="seconds")),
-        "source_summary": run_info.get("source_summary", {}),
-        "count": len(sorted_records),
-        "jobs": [
-            {
-                "id": r.get("id"),
-                "title": r.get("title", ""),
-                "school": r.get("school", ""),
-                "province": r.get("province", ""),
-                "city": r.get("city", ""),
-                "education": r.get("education", ""),
-                "experience": r.get("experience", ""),
-                "salary": r.get("salary", ""),
-                "salary_text": r.get("salary_text", ""),
-                "subject": r.get("subject", ""),
-                "school_level": r.get("school_level", ""),
-                "source": r.get("source", ""),
-                "source_label": r.get("source_label", ""),
-                "url": r.get("url", ""),
-                "deadline": r.get("deadline", ""),
-                "publish_date": r.get("publish_date", ""),
-                "crawl_date": r.get("crawl_date", ""),
-                # 是否今天新抓取（用于"今日新增"标记与筛选）
-                "is_new": r.get("crawl_date", "") == today,
-                "summary": r.get("summary", "")[:160],
-            }
-            for r in sorted_records
-        ],
-    }
+    def to_frontend(r: dict) -> dict:
+        out = {
+            "title": r.get("title", ""),
+            "school": r.get("school", ""),
+            "province": r.get("province", ""),
+            "city": r.get("city", ""),
+            "education": r.get("education", ""),
+            "experience": r.get("experience", ""),
+            "salary_text": r.get("salary_text", ""),
+            "subject": r.get("subject", ""),
+            "school_level": r.get("school_level", ""),
+            "source": r.get("source", ""),
+            "source_label": r.get("source_label", ""),
+            "url": r.get("url", ""),
+            "deadline": r.get("deadline", ""),
+            "publish_date": r.get("publish_date", ""),
+            "crawl_date": r.get("crawl_date", ""),
+            # 是否今天新抓取（用于"今日新增"标记与筛选）
+            "is_new": r.get("crawl_date", "") == today,
+        }
+        summary = (r.get("summary") or "").strip()
+        if summary:
+            out["summary"] = summary[:120]
+        return out
 
+    updated_at = run_info.get("updated_at", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+
+    # 按来源拆分文件，避免单文件过大、便于前端并行加载
+    by_source: dict[str, list[dict]] = {}
+    for r in sorted_records:
+        by_source.setdefault(r.get("source", "other"), []).append(to_frontend(r))
+
+    jobs_paths: dict[str, str] = {}
+    total = 0
+    for src, jobs in by_source.items():
+        total += len(jobs)
+        payload = {
+            "updated_at": updated_at,
+            "source": src,
+            "count": len(jobs),
+            "jobs": jobs,
+        }
+        path = os.path.join(WEB_DATA_DIR, f"jobs-{src}.json")
+        save_json(path, payload)
+        jobs_paths[src] = path
+
+    # 汇总文件（兼容旧版/便于快速查看总量）
+    frontend_payload = {
+        "updated_at": updated_at,
+        "source_summary": run_info.get("source_summary", {}),
+        "count": total,
+        "jobs": [to_frontend(r) for r in sorted_records],
+        "source_files": {k: f"jobs-{k}.json" for k in by_source},
+    }
     jobs_path = os.path.join(WEB_DATA_DIR, "jobs.json")
     save_json(jobs_path, frontend_payload)
 
@@ -114,7 +141,7 @@ def write_outputs(records: list[dict], run_info: dict) -> dict:
         save_json(snapshot_path, sorted_records)
     _cleanup_old_snapshots(keep_days=14)
 
-    return {"frontend_path": jobs_path, "snapshot_path": snapshot_path, "count": len(sorted_records)}
+    return {"frontend_path": jobs_path, "snapshot_path": snapshot_path, "count": len(sorted_records), "source_files": jobs_paths}
 
 
 def _cleanup_old_snapshots(keep_days: int = 14) -> None:
