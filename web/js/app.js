@@ -21,12 +21,13 @@ const PROVINCE_COORDS = {
 const state = {
   jobs: [],
   meta: null,
-  filters: { q: "", province: "", subject: "", education: "", level: "", source: "", days: "" },
+  filters: { q: "", province: "", subject: "", education: "", level: "", source: "", days: "", today: false },
   sort: "date",
   pageSize: 20,
   page: 1,
   map: null,
   mapInit: false,
+  watches: [],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -35,7 +36,8 @@ const els = {
   education: $("f-education"), level: $("f-level"), source: $("f-source"), days: $("f-days"),
   list: $("job-list"), empty: $("empty"), count: $("stat-count"), updated: $("stat-updated"),
   listCount: $("list-count"), listTitle: $("list-title"), chips: $("active-chips"),
-  loadMore: $("load-more"), mapPanel: $("map-panel"),
+  loadMore: $("load-more"), mapPanel: $("map-panel"), btnToday: $("btn-today"),
+  btnSaveWatch: $("btn-save-watch"), watchList: $("watch-list"), watchInfo: $("watch-info"),
 };
 
 /* ---------- 数据加载 ---------- */
@@ -52,6 +54,7 @@ async function loadData() {
       els.updated.textContent = "更新于 " + formatDateTime(data.updated_at);
     }
     buildFilterOptions();
+    loadWatches();
     render();
     loadCounts();
   } catch (e) {
@@ -117,6 +120,9 @@ function applyFilters() {
       return d >= cutoff;
     });
   }
+  if (f.today) {
+    list = list.filter((j) => j.is_new);
+  }
   // 默认按时间倒序：优先 publish_date，缺失时用 crawl_date
   if (state.sort === "date") {
     list = [...list].sort((a, b) => {
@@ -164,6 +170,7 @@ function renderPage(filtered) {
 
 function renderCard(j) {
   const tags = [];
+  if (j.is_new) tags.push(`<span class="tag new">🆕 今日新增</span>`);
   if (j.salary_text) tags.push(`<span class="tag salary">${escapeHtml(j.salary_text)}</span>`);
   if (j.province || j.city) tags.push(`<span class="tag loc">📍 ${escapeHtml(j.province || "")}${j.city ? "·" + escapeHtml(j.city) : ""}</span>`);
   if (j.education) tags.push(`<span class="tag edu">🎓 ${escapeHtml(j.education)}</span>`);
@@ -200,6 +207,7 @@ function renderChips() {
   const f = state.filters;
   const chips = [];
   if (f.q) chips.push(["关键词", f.q, "q"]);
+  if (f.today) chips.push(["时间", "今日新增", "today"]);
   if (f.province) chips.push(["地区", f.province, "province"]);
   if (f.subject) chips.push(["学科", f.subject, "subject"]);
   if (f.education) chips.push(["学历", f.education, "education"]);
@@ -230,6 +238,82 @@ function syncSelects() {
   els.level.value = state.filters.level;
   els.source.value = state.filters.source;
   els.days.value = state.filters.days;
+  els.btnToday.classList.toggle("active", state.filters.today);
+  els.btnToday.setAttribute("aria-pressed", String(state.filters.today));
+}
+
+/* ---------- 关注筛选组合（localStorage） ---------- */
+const WATCH_KEY = "teacher-hire-watches";
+
+function loadWatches() {
+  try {
+    state.watches = JSON.parse(localStorage.getItem(WATCH_KEY) || "[]");
+  } catch (e) {
+    state.watches = [];
+  }
+  renderWatches();
+}
+
+function saveWatches() {
+  localStorage.setItem(WATCH_KEY, JSON.stringify(state.watches.slice(0, 8)));
+  renderWatches();
+}
+
+function currentFilterSignature() {
+  const f = state.filters;
+  return [f.province, f.subject, f.education, f.level].join("|");
+}
+
+function renderWatches() {
+  const todayNew = state.jobs.filter((j) => j.is_new);
+  els.watchList.innerHTML = state.watches.map((w) => {
+    const matchToday = todayNew.filter((j) =>
+      (!w.province || j.province === w.province) &&
+      (!w.subject || j.subject === w.subject) &&
+      (!w.education || j.education === w.education) &&
+      (!w.level || j.school_level === w.level)
+    ).length;
+    const label = [w.province, w.subject, w.education, w.level].filter(Boolean).join(" · ") || "全部岗位";
+    const badge = matchToday > 0 ? `<span class="new-badge">+${matchToday}</span>` : "";
+    return `<span class="watch-item" data-idx="${state.watches.indexOf(w)}">⭐ ${escapeHtml(label)}${badge}<button data-del="1" aria-label="删除">×</button></span>`;
+  }).join("");
+  els.watchList.querySelectorAll(".watch-item").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      if (e.target.dataset.del) {
+        state.watches.splice(Number(el.dataset.idx), 1);
+        saveWatches();
+        return;
+      }
+      const w = state.watches[Number(el.dataset.idx)];
+      if (!w) return;
+      state.filters.province = w.province || "";
+      state.filters.subject = w.subject || "";
+      state.filters.education = w.education || "";
+      state.filters.level = w.level || "";
+      syncSelects();
+      render();
+    });
+  });
+}
+
+function saveCurrentWatch() {
+  const f = state.filters;
+  const w = { province: f.province || "", subject: f.subject || "", education: f.education || "", level: f.level || "" };
+  if (currentFilterSignature() === "|||" && !f.q) {
+    els.watchInfo.textContent = "先选择筛选条件再保存～";
+    setTimeout(() => { els.watchInfo.textContent = ""; }, 2000);
+    return;
+  }
+  const sig = [w.province, w.subject, w.education, w.level].join("|");
+  if (state.watches.some((x) => [x.province, x.subject, x.education, x.level].join("|") === sig)) {
+    els.watchInfo.textContent = "这个组合已经关注过了";
+    setTimeout(() => { els.watchInfo.textContent = ""; }, 2000);
+    return;
+  }
+  state.watches.push(w);
+  saveWatches();
+  els.watchInfo.textContent = "已保存，有新岗位会显示 +N 角标";
+  setTimeout(() => { els.watchInfo.textContent = ""; }, 2500);
 }
 
 /* ---------- 地图与省份统计 ---------- */
@@ -347,6 +431,12 @@ function bindEvents() {
     state.page += 1;
     renderPage(applyFilters());
   });
+  els.btnToday.addEventListener("click", () => {
+    state.filters.today = !state.filters.today;
+    syncSelects();
+    render();
+  });
+  els.btnSaveWatch.addEventListener("click", saveCurrentWatch);
   els.mapPanel.addEventListener("toggle", () => {
     if (els.mapPanel.open && !state.mapInit) {
       fetch(COUNTS_URL).then((r) => r.json()).then((d) => initMap(d.counts || {}))
