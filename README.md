@@ -99,6 +99,16 @@ node scripts/smoke-test.js   # 前端冒烟测试（无需浏览器）
 
 站点地址：`https://<你的用户名>.github.io/<仓库名>/`
 
+> **推荐部署：国内服务器（主站）**
+> GitHub Pages 在部分大陆网络环境下访问不稳定，建议把主站部署到国内云服务器
+> （阿里云/腾讯云轻量服务器，Ubuntu 22.04，约几十元/年）。
+> 一键部署脚本见 `scripts/deploy_server.py`：
+> ```bash
+> python scripts/deploy_server.py <服务器IP> root <密码>
+> ```
+> 脚本会自动：安装 Nginx → 上传网站 → 安装爬虫环境 → 配置每日 15:30 本地爬取 → 首次运行生成数据。
+> GitHub Pages 保留作为开源镜像/备用入口。
+
 ## 🧩 如何加一个新数据源
 
 1. 在 `crawler/sources/` 新建 `my_source.py`：
