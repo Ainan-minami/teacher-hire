@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="教师招聘信息聚合站：聚合全国中小学、高校、教育局招聘公告，支持按地区、学科、学历、关键词筛选。" />
+  <title>教师招聘聚合站 · 全国教师招聘信息</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Leaflet 走国内 CDN，提升大陆访问速度 -->
+  <link rel="stylesheet" href="https://cdn.staticfile.net/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdn.staticfile.net/leaflet/1.9.4/leaflet.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">🧑‍🏫</span>
+      <div>
+        <h1>教师招聘聚合站</h1>
+        <p id="subtitle">全国教师招聘信息 · 每日自动更新</p>
+      </div>
+    </div>
+    <div class="stats" id="stats">
+      <span id="stat-count">加载中…</span>
+      <span id="stat-updated"></span>
+    </div>
+  </header>
+
+  <main>
+    <!-- 筛选区 -->
+    <section class="filters" aria-label="筛选">
+      <div class="search-row">
+        <input id="search" type="search" placeholder="搜索职位 / 学校 / 学科，如：数学、英语、事业编…" autocomplete="off" />
+        <select id="sort" aria-label="排序方式">
+          <option value="date">按发布时间</option>
+          <option value="salary">按薪资</option>
+        </select>
+      </div>
+      <div class="filter-grid">
+        <select id="f-province" aria-label="省份">
+          <option value="">全部地区</option>
+        </select>
+        <select id="f-subject" aria-label="学科">
+          <option value="">全部学科</option>
+        </select>
+        <select id="f-education" aria-label="学历要求">
+          <option value="">全部学历</option>
+        </select>
+        <select id="f-level" aria-label="学段">
+          <option value="">全部学段</option>
+        </select>
+        <select id="f-source" aria-label="信息来源">
+          <option value="">全部来源</option>
+        </select>
+        <select id="f-days" aria-label="发布时间范围">
+          <option value="">全部时间</option>
+          <option value="3">最近 3 天</option>
+          <option value="7">最近 7 天</option>
+          <option value="30">最近 30 天</option>
+        </select>
+      </div>
+      <div class="chips" id="active-chips"></div>
+    </section>
+
+    <!-- 省份分布（折叠式地图/条形图） -->
+    <details class="map-panel" id="map-panel">
+      <summary>🗺️ 岗位分布热度 <span id="map-hint">（点击展开）</span></summary>
+      <div id="map" class="map" aria-label="岗位分布地图"></div>
+      <div id="province-bars" class="province-bars"></div>
+    </details>
+
+    <section class="list-head">
+      <h2 id="list-title">最新招聘</h2>
+      <span id="list-count"></span>
+    </section>
+
+    <ul id="job-list" class="job-list"></ul>
+    <div id="empty" class="empty hidden">没有符合条件的岗位，换个筛选条件试试～</div>
+    <div id="load-more-wrap" class="load-more-wrap">
+      <button id="load-more" class="btn">加载更多</button>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>
+      数据来源：万行教师人才网、教育部人才服务网、全网公开招聘公告聚合 ·
+      每日自动更新 · 本项目仅供求职信息参考，投递请以官方公告为准
+    </p>
+    <p class="muted">项目开源：教师招聘信息聚合站（GitHub）</p>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

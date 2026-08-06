@@ -1,0 +1,77 @@
+name: 每日爬取并部署
+
+on:
+  schedule:
+    # 每天 07:00 UTC（北京时间 15:00）运行一次
+    - cron: "0 7 * * *"
+  push:
+    # 手动提交/爬虫自动提交后都重新部署，确保 Pages 与最新数据一致
+    branches: [main, master]
+  workflow_dispatch: # 支持手动触发
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: crawl-deploy
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    name: 爬取数据
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 运行爬虫
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+        run: python -m crawler.runner
+
+      - name: 提交数据更新
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/data crawler/data
+          if git diff --cached --quiet; then
+            echo "没有数据变化"
+          else
+            git commit -m "chore(data): 每日自动更新招聘数据 $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+  deploy:
+    name: 部署到 GitHub Pages
+    needs: crawl
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传站点
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - name: 部署
+        id: deployment
+        uses: actions/deploy-pages@v4
