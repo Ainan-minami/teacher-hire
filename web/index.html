@@ -35,6 +35,11 @@
           <option value="salary">按薪资</option>
         </select>
       </div>
+      <div class="quick-row">
+        <button id="btn-today" class="btn btn-ghost" aria-pressed="false">🆕 只看今日新增</button>
+        <button id="btn-save-watch" class="btn btn-ghost">⭐ 保存当前筛选为关注</button>
+        <span id="watch-info" class="watch-info"></span>
+      </div>
       <div class="filter-grid">
         <select id="f-province" aria-label="省份">
           <option value="">全部地区</option>
@@ -59,6 +64,7 @@
         </select>
       </div>
       <div class="chips" id="active-chips"></div>
+      <div class="watches" id="watch-list"></div>
     </section>
 
     <!-- 省份分布（折叠式地图/条形图） -->
