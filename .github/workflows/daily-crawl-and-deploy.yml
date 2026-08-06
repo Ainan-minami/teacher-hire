@@ -51,18 +51,25 @@ jobs:
             echo "没有数据变化"
           else
             git commit -m "chore(data): 每日自动更新招聘数据 $(date -u +%Y-%m-%d)"
+            # 并发运行时（如手动+定时重叠）先拉取再推送，避免非快进冲突
+            git pull --rebase origin main || true
             git push
           fi
 
   deploy:
     name: 部署到 GitHub Pages
     needs: crawl
+    # 即使爬虫某步失败也尝试部署（仓库中已有上一次数据，站点不应因此停摆）
+    if: always()
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: 配置 Pages
         uses: actions/configure-pages@v5
