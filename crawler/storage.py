@@ -97,6 +97,8 @@ def write_outputs(records: list[dict], run_info: dict) -> dict:
                 "deadline": r.get("deadline", ""),
                 "publish_date": r.get("publish_date", ""),
                 "crawl_date": r.get("crawl_date", ""),
+                # 是否今天新抓取（用于"今日新增"标记与筛选）
+                "is_new": r.get("crawl_date", "") == today,
                 "summary": r.get("summary", "")[:160],
             }
             for r in sorted_records
